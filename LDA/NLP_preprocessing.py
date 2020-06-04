@@ -3,7 +3,20 @@ import os
 import pandas as pd
 import gensim
 from gensim import models
+
+from stop_words import get_stop_words
 from nltk.stem import WordNetLemmatizer
+import re
+
+from nltk.tokenize import word_tokenize
+from language_detector import detect_language
+
+import pkg_resources
+from symspellpy import SymSpell, Verbosity
+
+import string
+import spacy
+from spacy.lang.en import English
 
 from parameters import *
 
@@ -40,18 +53,6 @@ def read_data(in_dir, filename, text_col, renamed_text_col, text_language):
 # ---------Text preprocessing---------#
 ######################################
 
-from stop_words import get_stop_words
-from nltk.stem import WordNetLemmatizer
-import re
-from nltk.tokenize import word_tokenize
-from language_detector import detect_language
-
-import pkg_resources
-from symspellpy import SymSpell, Verbosity
-
-import string
-import spacy
-from spacy.lang.en import English
 
 # Spelling correction
 sym_spell = SymSpell(max_dictionary_edit_distance=3, prefix_length=7)
@@ -101,6 +102,7 @@ def f_lan(s):
 
 
 #### word level preprocess ####
+punctuations = string.punctuation
 
 # filtering out punctuations and numbers --maybe it is better to keep years
 def f_punct(w_list):
@@ -108,8 +110,16 @@ def f_punct(w_list):
     :param w_list: word list to be processed
     :return: w_list with punct and number filter out
     """
-    return [word for word in w_list if word.isalpha()]
+    # return [word for word in w_list if word.isalpha()]
+    return [word for word in w_list if word not in punctuations]
 
+def f_num(w_list):
+    """
+    :param w_list: word list to be processed
+    :return: w_list with number filter out except years
+    """
+    digits = [num for num in w_list if num.isdigit() and num not in ['2014','2015', '2016', '2017', '2018', '2019']]
+    return [word for word in w_list if word not in digits]
 
 # typo correction
 def f_typo(w_list):
@@ -119,7 +129,8 @@ def f_typo(w_list):
     """
     w_list_fixed = []
     for word in w_list:
-        suggestions = sym_spell.lookup(word, Verbosity.CLOSEST, max_edit_distance=3)
+        suggestions = sym_spell.lookup(word, Verbosity.CLOSEST, max_edit_distance=3,
+                                       ignore_token=r"\d{2}\w*\b|\d+\W+\d+\b|\d\w*\b|[!@£#$%^&*();,.?:{}/|<>]")
         if suggestions:
             w_list_fixed.append(suggestions[0].term)
         else:
@@ -131,25 +142,28 @@ def f_typo(w_list):
 
 
 # NLTK
-lemmer = WordNetLemmatizer()
-
+# lemmer = WordNetLemmatizer()
 
 def f_lemma(w_list):
     """
     :param w_list: word list to be processed
     :return: w_list with stemming
     """
-    return [lemmer.lemmatize(word) for word in w_list]
+    # return [lemmer.lemmatize(word) for word in w_list]
+    return [word.lemma_.strip() if word.lemma_ != "-PRON-" else word.lower_ for word in w_list]
 
 
 # filtering out stop words
 # create English stop words list
 stop_words_to_keep = ["no", "n't", "not"]
+stop_words = [stop for stop in spacy.lang.en.stop_words.STOP_WORDS if stop not in stop_words_to_keep]
 
-stop_words = (list(
-    set(get_stop_words('en'))
-    | set(get_stop_words('fr'))
-))
+# stop_words = (list(
+#     set(get_stop_words('en'))
+#     # | set(get_stop_words('fr'))
+# ))
+stop_words = spacy.lang.en.stop_words.STOP_WORDS
+
 stop_words = [stop for stop in stop_words if stop not in stop_words_to_keep]
 extend_stop_words = EXTRA_STOP_WORDS
 stop_words.extend(extend_stop_words)
@@ -181,6 +195,7 @@ def preprocess_sent(rw):
     return s
 
 
+parser = English()
 def preprocess_word(s):
     """
     Get word level preprocessed data from preprocessed sentences
@@ -190,10 +205,11 @@ def preprocess_word(s):
     """
     if not s:
         return None
-    w_list = word_tokenize(s)
-    w_list = f_punct(w_list)
-    w_list = f_typo(w_list)
+    w_list = parser(s)
     w_list = f_lemma(w_list)
+    w_list = f_punct(w_list)
+    w_list = f_num(w_list)
+    w_list = f_typo(w_list)
     w_list = f_stopw(w_list)
     w_list = f_replacew(w_list)
 
@@ -210,7 +226,7 @@ def sent_to_words(sentences):
     # !python3 -m spacy download en  # run in terminal once
 
 
-def process_text_col(df, text_col, allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']):
+def process_text_col(df, text_col, not_allowed_postags=[]): #allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV']
     # Convert to list
     data = df[text_col].values.tolist()
     texts = list(sent_to_words(data))
@@ -230,9 +246,7 @@ def process_text_col(df, text_col, allowed_postags=['NOUN', 'ADJ', 'VERB', 'ADV'
     nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
     for sent in texts:
         doc = nlp(" ".join(sent))
-        texts_out.append([token.lemma_ for token in doc if token.pos_ in allowed_postags])
-    # remove stopwords once more after lemmatization
-    # texts_out = [[word for word in simple_preprocess(str(doc)) if word not in stop_words] for doc in texts_out]
+        texts_out.append([token.lemma_ for token in doc if token.pos_  not in not_allowed_postags])
     return texts_out
 
 
