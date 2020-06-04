@@ -216,12 +216,12 @@ def word_count_topic(ldamodel, num_topics, texts):
         ax_twin.bar(x='word', height="importance", data=df.loc[df.topic_id == i, :], color=cols[i], width=0.2,
                     label='Weights')
         ax.set_ylabel('Word Count', color=cols[i])
-        ax_twin.set_ylim(0, 0.230);
+        ax_twin.set_ylim(0, 0.230)
         ax.set_ylim(0, 900)
         ax.set_title('Topic: ' + str(i), color=cols[i], fontsize=16)
         ax.tick_params(axis='y', left=False)
         ax.set_xticklabels(df.loc[df.topic_id == i, 'word'], rotation=30, horizontalalignment='right')
-        ax.legend(loc='upper left');
+        ax.legend(loc='upper left')
         ax_twin.legend(loc='upper right')
 
     fig.tight_layout(w_pad=2)
