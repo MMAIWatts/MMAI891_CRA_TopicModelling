@@ -60,8 +60,8 @@ def coherence_vs_topics(texts, dictionary, corpus, min_number_topics=5, max_numb
         coherence_lda = coherence_model_lda.get_coherence()
         scores.append(coherence_lda)
 
-    plt.plot(topics_range, scores)
-    plt.xticks(topics_range)
+    plt.plot(range(min_number_topics, max_number_topics + 1), scores)
+    plt.xticks(range(min_number_topics, max_number_topics + 1))
     plt.xlabel('Number of Topics')
     plt.ylabel('coherence score')
     plt.savefig(os.path.join(OUT_DIR, 'coherence_Topics_plot.png'))
