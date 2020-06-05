@@ -19,6 +19,7 @@ from bokeh.plotting import figure, output_file, show
 from bokeh.models import Label
 from bokeh.io import output_notebook
 # from bokeh.io import export_png
+from tqdm import tqdm
 
 # pyLDAVis
 import pyLDAvis.gensim
@@ -51,7 +52,7 @@ def lda(num_topics, corpus, dictionary):
 # coherence vs number of topics plot -- run it once after preprocessing to choose the proper number of topics
 def coherence_vs_topics(texts, dictionary, corpus, min_number_topics=5, max_number_topics=15):
     scores = []
-    topics_range = range(min_number_topics, max_number_topics + 1)
+    topics_range = tqdm(range(min_number_topics, max_number_topics + 1))
     for n_topic in topics_range:
         ldamodel = lda(num_topics=n_topic, corpus=corpus, dictionary=dictionary)
         # Compute Coherence Score
