@@ -104,7 +104,7 @@ def format_topics_sentences(ldamodel, corpus, texts):
 # Sentence Coloring of N Sentences
 def sentences_chart(ldamodel, corpus, start=0, end=12):
     corp = corpus[start:end]
-    mycolors = [color for name, color in mcolors.TABLEAU_COLORS.items()]
+    mycolors = [color for name, color in mcolors.XKCD_COLORS.items()]
 
     fig, axes = plt.subplots(end - start, 1, figsize=(20, (end - start) * 0.95), dpi=160)
     axes[0].axis('off')
@@ -217,7 +217,7 @@ def word_count_topic(ldamodel, num_topics, texts):
     df = pd.DataFrame(out, columns=['word', 'topic_id', 'importance', 'word_count'])
 
     # Plot Word Count and Weights of Topic Keywords
-    fig, axes = plt.subplots(2, 3, figsize=(16, 10), sharey=False, dpi=160)
+    fig, axes = plt.subplots(3, 5, figsize=(16, 10), sharey=False, dpi=160)
     cols = [color for name, color in mcolors.TABLEAU_COLORS.items()]
     for i, ax in enumerate(axes.flatten()):
         ax.bar(x='word', height="word_count", data=df.loc[df.topic_id == i, :], color=cols[i], width=0.5, alpha=0.3,
@@ -242,7 +242,7 @@ def word_count_topic(ldamodel, num_topics, texts):
     
 # Wordcloud
 def get_wordcloud_LDA(ldamodel, num_topics):
-    cols = [color for name, color in mcolors.TABLEAU_COLORS.items()]  # more colors: 'mcolors.XKCD_COLORS'
+#     cols = [color for name, color in mcolors.TABLEAU_COLORS.items()]  # more colors: 'mcolors.XKCD_COLORS'
 
     cloud = WordCloud(width=800, height=560,
                       background_color='white', collocations=False,
@@ -282,14 +282,12 @@ def tsne_plot(ldamodel, corpus, num_topics,
 
     # Array of topic weights    
     arr = pd.DataFrame(topic_weights).fillna(0).values
-    print(arr.head())
     # Keep the well separated points
     arr = arr[np.amax(arr, axis=1) > Keep_well_separated_pcnt]
-    print(arr[:30])
 
     # Dominant topic number in each doc
     topic_num = np.argmax(arr, axis=1)
-    print(topic_num[:30])
+    
     # tSNE Dimension Reduction
     # TODO tune hyperparameters: like perplexity --can add to function arguments
     tsne_model = TSNE(n_components=2, verbose=1, random_state=42, angle=.3, init='pca')
@@ -350,7 +348,7 @@ def save_vec_lda(model, corpus, k):
         for topic, prob in model.get_document_topics(corpus[i]):
             vec_lda[i, topic] = prob
     
-    np.savetxt(os.path.join(out_dir, '/lda_vec.csv', vec_lda, delimiter=",")
+    np.savetxt(os.path.join(out_dir, '/lda_vec.csv'), vec_lda, delimiter=",")
 
     return
 

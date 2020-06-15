@@ -140,9 +140,6 @@ def f_typo(w_list):
     return w_list_fixed
 
 
-# NLTK
-# lemmer = WordNetLemmatizer()
-
 
 def f_lemma(w_list):
     """
