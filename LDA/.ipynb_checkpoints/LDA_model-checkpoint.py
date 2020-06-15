@@ -12,7 +12,7 @@ from matplotlib.ticker import FuncFormatter
 import os
 from collections import Counter
 import seaborn as sns
-
+sns.set()
 # t-SNE Clustering Chart
 from sklearn.manifold import TSNE
 from bokeh.plotting import figure, output_file, show
@@ -32,18 +32,19 @@ from parameters import *
 from NLP_preprocessing import *
 
 
+
 ## LDA function ###
 def lda(num_topics, corpus, dictionary):
     # Build LDA model
     model = gensim.models.ldamodel.LdaModel(corpus=corpus,
                                             id2word=dictionary,
                                             num_topics=num_topics,
-                                            random_state=65,
+                                            random_state=42,
                                             update_every=1,
                                             chunksize=10,
                                             passes=10,
                                             alpha='symmetric',
-                                            iterations=20,
+                                            iterations=100,
                                             per_word_topics=True)
 
     return model
@@ -59,14 +60,18 @@ def coherence_vs_topics(texts, dictionary, corpus, min_number_topics=5, max_numb
         coherence_model_lda = CoherenceModel(model=ldamodel, texts=texts, dictionary=dictionary, coherence='c_v')
         coherence_lda = coherence_model_lda.get_coherence()
         scores.append(coherence_lda)
-
-    plt.plot(range(min_number_topics, max_number_topics + 1), scores)
-    plt.xticks(range(min_number_topics, max_number_topics + 1))
+    
+    trange = range(min_number_topics, max_number_topics + 1)
+    pd.DataFrame({'Number of Topics':trange, 'Coherence Score': scores}).to_csv(os.path.join(OUT_DIR, 'coherence_Topics_score.csv'))
+    plt.figure(figsize = (6,4))
+    plt.plot(trange, scores)
+    plt.xticks(trange)
     plt.xlabel('Number of Topics')
     plt.ylabel('coherence score')
     plt.savefig(os.path.join(OUT_DIR, 'coherence_Topics_plot.png'))
     plt.show()
 
+    
 
 ##Some functions for Topic analysis##
 def format_topics_sentences(ldamodel, corpus, texts):
@@ -93,6 +98,7 @@ def format_topics_sentences(ldamodel, corpus, texts):
     sent_topics_df = pd.concat([sent_topics_df, contents], axis=1)
     sent_topics_df.columns = ['Dominant_Topic', 'Topic_Perc_Contrib', 'Keywords', 'Text']
     return (sent_topics_df)
+
 
 
 # Sentence Coloring of N Sentences
@@ -138,6 +144,7 @@ def sentences_chart(ldamodel, corpus, start=0, end=12):
     plt.show()
 
 
+    
 def topics_per_document(ldamodel, corpus, start=0, end=-1):
     corpus_sel = corpus[start:end]
     dominant_topics = []
@@ -158,6 +165,7 @@ def topics_per_document(ldamodel, corpus, start=0, end=-1):
     df_topic_weightage_by_doc = topic_weightage_by_doc.sum().to_frame(name='count').reset_index()
 
     return df_dominant_topic_in_each_doc, df_topic_weightage_by_doc
+
 
 
 # Plot Topic Distribution by Dominant Topics
@@ -192,6 +200,7 @@ def Plot_topic_dist(ldamodel, num_topics, corpus):
 
     plt.show()
 
+    
 
 # Word Counts of Topic Keywords
 #TODO change this function to be general - now works for 9 topics and y_lim is proper of one question
@@ -208,7 +217,7 @@ def word_count_topic(ldamodel, num_topics, texts):
     df = pd.DataFrame(out, columns=['word', 'topic_id', 'importance', 'word_count'])
 
     # Plot Word Count and Weights of Topic Keywords
-    fig, axes = plt.subplots(3, 3, figsize=(16, 10), sharey=False, dpi=160)
+    fig, axes = plt.subplots(2, 3, figsize=(16, 10), sharey=False, dpi=160)
     cols = [color for name, color in mcolors.TABLEAU_COLORS.items()]
     for i, ax in enumerate(axes.flatten()):
         ax.bar(x='word', height="word_count", data=df.loc[df.topic_id == i, :], color=cols[i], width=0.5, alpha=0.3,
@@ -230,6 +239,7 @@ def word_count_topic(ldamodel, num_topics, texts):
     plt.show()
 
 
+    
 # Wordcloud
 def get_wordcloud_LDA(ldamodel, num_topics):
     cols = [color for name, color in mcolors.TABLEAU_COLORS.items()]  # more colors: 'mcolors.XKCD_COLORS'
@@ -272,16 +282,17 @@ def tsne_plot(ldamodel, corpus, num_topics,
 
     # Array of topic weights    
     arr = pd.DataFrame(topic_weights).fillna(0).values
-
+    print(arr.head())
     # Keep the well separated points
     arr = arr[np.amax(arr, axis=1) > Keep_well_separated_pcnt]
+    print(arr[:30])
 
     # Dominant topic number in each doc
     topic_num = np.argmax(arr, axis=1)
-
+    print(topic_num[:30])
     # tSNE Dimension Reduction
     # TODO tune hyperparameters: like perplexity --can add to function arguments
-    tsne_model = TSNE(n_components=2, verbose=1, random_state=0, angle=.5, init='pca')
+    tsne_model = TSNE(n_components=2, verbose=1, random_state=42, angle=.3, init='pca')
 
     tsne_lda = tsne_model.fit_transform(arr)
 
@@ -289,7 +300,7 @@ def tsne_plot(ldamodel, corpus, num_topics,
     output_notebook()
 
     mycolors = np.array([color for name, color in
-                         mcolors.TABLEAU_COLORS.items()])  # TABLEAU_COLORS (max 10 topics), XKCD_COLORS -> more than 10
+                         mcolors.XKCD_COLORS.items()])  # TABLEAU_COLORS (max 10 topics), XKCD_COLORS -> more than 10
     plot = figure(title="t-SNE Clustering of {} LDA Topics".format(num_topics),
                   plot_width=900, plot_height=700)
     plot.scatter(x=tsne_lda[:, 0], y=tsne_lda[:, 1], color=mycolors[topic_num])
@@ -302,6 +313,47 @@ def pyldavis_plot(ldamodel, corpus, mds="tsne"):
     pyLDAvis.enable_notebook()
     vis = pyLDAvis.gensim.prepare(ldamodel, corpus, dictionary=ldamodel.id2word, mds=mds)
     return vis
+
+
+# Top 3 topics per document
+def top3_topics_per_document(ldamodel, corpus):
+    topics_top3 = []
+
+    for i, corp in enumerate(corpus):
+        topic_percs, wordid_topics, wordid_phivalues = ldamodel[corp]
+        dominant_topic = sorted(topic_percs, key=lambda x: x[1], reverse=True)[0][0]
+        try:
+            topic2 = sorted(topic_percs, key=lambda x: x[1], reverse=True)[1][0]
+        except:
+            topic2 = None        
+        try:
+            topic3 = sorted(topic_percs, key=lambda x: x[1], reverse=True)[2][0]
+        except:
+            topic3 = None
+        topics_top3.append((i, dominant_topic , topic2, topic3 ))       
+
+
+    df = pd.DataFrame(topics_top3, columns = ['Document_Id', 'Dominant_Topic', 'Second_Topic', 'Third_Topic'])
+    
+    return df
+
+# LDA vector
+def save_vec_lda(model, corpus, k):
+    """
+    Get the LDA vector representation (probabilistic topic assignments for all documents)
+    :return: vec_lda with dimension: (n_doc * n_topic)
+    """
+    n_doc = len(corpus)
+    vec_lda = np.zeros((n_doc, k))
+    for i in range(n_doc):
+        # get the distribution for the i-th document in corpus
+        for topic, prob in model.get_document_topics(corpus[i]):
+            vec_lda[i, topic] = prob
+    
+    np.savetxt(os.path.join(out_dir, '/lda_vec.csv', vec_lda, delimiter=",")
+
+    return
+
 
 
 if __name__ == '__main__':
